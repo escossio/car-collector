@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historico Tecnico de Viagens</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: rgba(13, 17, 23, 0.96); border-bottom: 1px solid #30363d; }
+        h1 { margin: 0; color: #fff; font-size: 22px; }
+        a { color: #58a6ff; text-decoration: none; }
+        main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+        .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; color: #8b949e; font-size: 13px; }
+        .trips-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+        .trip-card, .detail-panel { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+        .trip-card { padding: 16px; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+        .trip-card:hover, .trip-card.active { border-color: #58a6ff; transform: translateY(-1px); }
+        .trip-header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .trip-title { color: #fff; font-weight: 700; }
+        .trip-time { color: #8b949e; font-size: 12px; margin-top: 3px; }
+        .duration { color: #c9d1d9; font-size: 13px; white-space: nowrap; }
+        .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+        .metric { min-width: 0; padding: 10px; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; }
+        .metric .value { color: #fff; font-size: 18px; line-height: 1.2; font-weight: 800; }
+        .metric .label { margin-top: 4px; color: #8b949e; font-size: 11px; text-transform: uppercase; }
+        .status-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border-radius: 999px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; font-size: 12px; font-weight: 700; }
+        .chip.normal { border-color: #238636; color: #7ee787; }
+        .chip.warn { border-color: #d29922; color: #f2cc60; }
+        .chip.bad { border-color: #da3633; color: #ff7b72; }
+        .detail-panel { display: none; margin-top: 20px; overflow: hidden; }
+        .detail-panel.visible { display: block; }
+        .detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid #30363d; }
+        .detail-head h2 { margin: 0; color: #fff; font-size: 18px; }
+        .detail-body { padding: 16px; }
+        .section-title { margin: 18px 0 10px; color: #fff; font-size: 14px; font-weight: 800; text-transform: uppercase; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+        .observations { margin: 0; padding-left: 18px; color: #c9d1d9; line-height: 1.5; }
+        .table-wrap { overflow-x: auto; border: 1px solid #30363d; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 860px; font-size: 12px; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid #21262d; text-align: right; white-space: nowrap; }
+        th:first-child, td:first-child { text-align: left; }
+        th { color: #8b949e; background: #0d1117; font-weight: 800; }
+        #trip-map { height: 320px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; }
+        .empty { padding: 20px; color: #8b949e; background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+        @media (max-width: 720px) {
+            header, .toolbar, .trip-header, .detail-head { align-items: flex-start; flex-direction: column; }
+            main { padding: 14px; }
+            .trips-list { grid-template-columns: 1fr; }
+            .metric-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>Historico tecnico</h1>
+            <div class="trip-time">Viagens gravadas em PostgreSQL</div>
+        </div>
+        <a href="/car/dashboard/">Voltar ao dashboard</a>
+    </header>
+    <main>
+        <div class="toolbar">
+            <div id="summary-line">Carregando viagens...</div>
+            <button id="reload" class="chip" type="button">Atualizar</button>
+        </div>
+        <section id="trips-list" class="trips-list"></section>
+        <section id="detail-panel" class="detail-panel">
+            <div class="detail-head">
+                <div>
+                    <h2 id="detail-title">Viagem</h2>
+                    <div id="detail-subtitle" class="trip-time"></div>
+                </div>
+                <div id="detail-status" class="status-row"></div>
+            </div>
+            <div class="detail-body">
+                <div class="section-title">Resumo tecnico</div>
+                <div id="detail-summary" class="summary-grid"></div>
+                <div class="section-title">Observacoes automaticas</div>
+                <ul id="detail-observations" class="observations"></ul>
+                <div class="section-title">Rota</div>
+                <div id="trip-map"></div>
+                <div class="section-title">Amostras relevantes</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hora</th><th>Vel.</th><th>RPM</th><th>Carga</th><th>Temp.</th><th>Adm.</th><th>STFT</th><th>LTFT</th><th>Total</th><th>Bateria</th>
+                            </tr>
+                        </thead>
+                        <tbody id="samples-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const apiBase = '/car/api';
+        let map;
+        let routeLine;
+        let activeCardId = null;
+        const fmtNum = (value, digits = 0) => value === null || value === undefined || Number.isNaN(Number(value)) ? '-' : Number(value).toFixed(digits);
+        const fmtUnit = (value, unit, digits = 0) => value === null || value === undefined ? '-' : `${fmtNum(value, digits)} ${unit}`;
+        const fmtDate = (iso) => iso ? new Date(iso).toLocaleString('pt-BR') : '-';
+        const fmtShortTime = (iso) => iso ? new Date(iso).toLocaleTimeString('pt-BR') : '-';
+        const fmtDuration = (seconds) => {
+            if (seconds === null || seconds === undefined) return '-';
+            const total = Math.max(0, Number(seconds));
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = Math.floor(total % 60);
+            if (h > 0) return `${h}h ${m}m`;
+            if (m > 0) return `${m}m ${s}s`;
+            return `${s}s`;
+        };
+        function statusChips(classification) {
+            const cls = classification || {};
+            const chips = [];
+            if (cls.fuel_trim_status === 'rich_tendency') chips.push(['bad', 'Tendencia rica']);
+            else if (cls.fuel_trim_status === 'lean_tendency') chips.push(['warn', 'Tendencia pobre']);
+            else if (cls.fuel_trim_status === 'normal') chips.push(['normal', 'Mistura normal']);
+            else chips.push(['warn', 'Mistura desconhecida']);
+            if (cls.thermal_status === 'hot') chips.push(['bad', 'Motor quente']);
+            else if (cls.thermal_status === 'normal') chips.push(['normal', 'Temperatura normal']);
+            else chips.push(['warn', 'Temperatura desconhecida']);
+            if (cls.driving_status === 'aggressive') chips.push(['warn', 'Conducao agressiva']);
+            else if (cls.driving_status === 'normal') chips.push(['normal', 'Conducao normal']);
+            else chips.push(['warn', 'Conducao desconhecida']);
+            return chips.map(([tone, label]) => `<span class="chip ${tone}">${label}</span>`).join('');
+        }
+        function metric(label, value) {
+            return `<div class="metric"><div class="value">${value}</div><div class="label">${label}</div></div>`;
+        }
+        async function fetchJson(path) {
+            const response = await fetch(`${apiBase}${path}`);
+            if (!response.ok) {
+                throw new Error(`API retornou HTTP ${response.status} ao carregar ${path}`);
+            }
+            return response.json();
+        }
+        function cardTrip(t) {
+            const tripId = t.id;
+            return `
+                <article class="trip-card" data-trip-id="${tripId}">
+                    <div class="trip-header">
+                        <div>
+                            <div class="trip-title">Trip #${t.id}${t.logical_trip_id ? ` / ${t.logical_trip_id}` : ''}</div>
+                            <div class="trip-time">${fmtDate(t.started_at)} - ${fmtDate(t.ended_at)}</div>
+                        </div>
+                        <div class="duration">${fmtDuration(t.duration_s)}</div>
+                    </div>
+                    <div class="metric-grid">
+                        ${metric('Vel. max', fmtUnit(t.speed_max, 'km/h'))}
+                        ${metric('Vel. media', fmtUnit(t.speed_avg, 'km/h'))}
+                        ${metric('RPM max', fmtUnit(t.rpm_max, 'rpm'))}
+                        ${metric('RPM medio', fmtUnit(t.rpm_avg, 'rpm'))}
+                        ${metric('Temp. max', fmtUnit(t.coolant_temp_max, 'C'))}
+                        ${metric('Trim total', fmtUnit(t.fuel_trim_total_avg, '%', 1))}
+                    </div>
+                    <div class="metric-grid">
+                        ${metric('Amostras', fmtNum(t.sample_count))}
+                        ${metric('Rica', fmtNum(t.rich_event_count))}
+                        ${metric('Pobre', fmtNum(t.lean_event_count))}
+                    </div>
+                    <div class="status-row">${statusChips(t.classification)}</div>
+                </article>
+            `;
+        }
+        async function loadTrips() {
+            const list = document.getElementById('trips-list');
+            const summary = document.getElementById('summary-line');
+            list.innerHTML = '<div class="empty">Carregando historico...</div>';
+            try {
+                const data = await fetchJson('/trips?limit=50');
+                const trips = data.trips || [];
+                summary.textContent = `${trips.length} viagens encontradas (${data.source || 'arquivo'})`;
+                if (!trips.length) {
+                    list.innerHTML = '<div class="empty">Nenhuma viagem registrada.</div>';
+                    return;
+                }
+                list.innerHTML = trips.map(cardTrip).join('');
+                list.querySelectorAll('.trip-card').forEach((card) => card.addEventListener('click', () => showTrip(card.dataset.tripId)));
+            } catch (error) {
+                summary.textContent = 'Falha ao carregar historico';
+                list.innerHTML = `<div class="empty">Nao foi possivel carregar /car/api/trips?limit=50: ${error.message}</div>`;
+            }
+        }
+        function initMap() {
+            if (map || !window.L) return;
+            map = L.map('trip-map').setView([-3.73, -38.52], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OSM' }).addTo(map);
+            routeLine = L.polyline([], { color: '#58a6ff', weight: 4 }).addTo(map);
+        }
+        function setActiveCard(id) {
+            activeCardId = id;
+            document.querySelectorAll('.trip-card').forEach((card) => card.classList.toggle('active', card.dataset.tripId === String(activeCardId)));
+        }
+        function renderMap(route) {
+            initMap();
+            if (!map || !routeLine) return;
+            const points = (route || []).map((p) => [p.lat, p.lon]);
+            routeLine.setLatLngs(points);
+            setTimeout(() => map.invalidateSize(), 50);
+            if (points.length) map.fitBounds(routeLine.getBounds(), { padding: [20, 20] });
+            else map.setView([-3.73, -38.52], 12);
+        }
+        function renderSamples(samples) {
+            const body = document.getElementById('samples-body');
+            const rows = (samples || []).slice(0, 80).map((s) => `
+                <tr>
+                    <td>${fmtShortTime(s.sample_time)}</td>
+                    <td>${fmtNum(s.filtered_speed)}</td>
+                    <td>${fmtNum(s.rpm)}</td>
+                    <td>${fmtNum(s.engine_load, 1)}</td>
+                    <td>${fmtNum(s.coolant_temp)}</td>
+                    <td>${fmtNum(s.intake_temp)}</td>
+                    <td>${fmtNum(s.stft_b1, 1)}</td>
+                    <td>${fmtNum(s.ltft_b1, 1)}</td>
+                    <td>${fmtNum(s.fuel_trim_total, 1)}</td>
+                    <td>${fmtNum(s.battery_voltage, 2)}</td>
+                </tr>
+            `);
+            body.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="10">Sem amostras para esta viagem.</td></tr>';
+        }
+        async function showTrip(id) {
+            setActiveCard(id);
+            const panel = document.getElementById('detail-panel');
+            panel.classList.add('visible');
+            document.getElementById('detail-title').textContent = `Trip #${id}`;
+            document.getElementById('detail-subtitle').textContent = 'Carregando detalhe...';
+            document.getElementById('detail-status').innerHTML = '';
+            document.getElementById('detail-summary').innerHTML = '';
+            document.getElementById('detail-observations').innerHTML = '';
+            renderMap([]);
+            renderSamples([]);
+            try {
+                const data = await fetchJson(`/trips/${encodeURIComponent(id)}`);
+                const trip = data.trip;
+                if (!trip) {
+                    throw new Error('Resposta sem campo trip');
+                }
+                document.getElementById('detail-title').textContent = `Trip #${trip.id}${trip.logical_trip_id ? ` / ${trip.logical_trip_id}` : ''}`;
+                document.getElementById('detail-subtitle').textContent = `${fmtDate(trip.started_at)} - ${fmtDate(trip.ended_at)} | ${fmtDuration(trip.duration_s)}`;
+                document.getElementById('detail-status').innerHTML = statusChips(trip.classification);
+                document.getElementById('detail-summary').innerHTML = [
+                    metric('Vel. max', fmtUnit(trip.speed_max, 'km/h')),
+                    metric('Vel. media', fmtUnit(trip.speed_avg, 'km/h')),
+                    metric('RPM max', fmtUnit(trip.rpm_max, 'rpm')),
+                    metric('RPM medio', fmtUnit(trip.rpm_avg, 'rpm')),
+                    metric('Motor max', fmtUnit(trip.coolant_temp_max, 'C')),
+                    metric('Motor media', fmtUnit(trip.coolant_temp_avg, 'C')),
+                    metric('Adm. max', fmtUnit(trip.intake_temp_max, 'C')),
+                    metric('Adm. media', fmtUnit(trip.intake_temp_avg, 'C')),
+                    metric('STFT medio', fmtUnit(trip.stft_b1_avg, '%', 1)),
+                    metric('LTFT medio', fmtUnit(trip.ltft_b1_avg, '%', 1)),
+                    metric('Trim total', fmtUnit(trip.fuel_trim_total_avg, '%', 1)),
+                    metric('Eventos rica/pobre', `${fmtNum(trip.rich_event_count)} / ${fmtNum(trip.lean_event_count)}`),
+                ].join('');
+                document.getElementById('detail-observations').innerHTML = (trip.observations || []).map((item) => `<li>${item}</li>`).join('');
+                renderMap(trip.route || []);
+                renderSamples(trip.samples || []);
+            } catch (error) {
+                document.getElementById('detail-subtitle').textContent = 'Falha ao carregar detalhe';
+                document.getElementById('detail-summary').innerHTML = `<div class="empty">Nao foi possivel carregar /car/api/trips/${id}: ${error.message}</div>`;
+            }
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        document.getElementById('reload').addEventListener('click', loadTrips);
+        loadTrips();
+    </script>
+</body>
+</html>

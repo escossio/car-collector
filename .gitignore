@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.sqlite3
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# Logs and generated runtime data
+logs/
+log/
+*.log
+*.log.*
+*.ndjson
+*.jsonl
+latest_*.json
+torque-requests.ndjson
+ingest.ndjson
+trips/
+reports/*.txt
+reports/*.log
+
+# Reports, samples, exports, and heavy/generated analysis output
+reports/
+exports/
+*.csv
+*.tsv
+
+# Backups and temporary files
+*.bak
+*.bak.*
+*.backup
+*.backup.*
+*~
+*.swp
+*.swo
+*backup*
+
+# Local data mirrors; real production data lives outside this repo
+data/
+var/lib/car-collector/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

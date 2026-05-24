@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Creta • Painel do Veículo</title>
+  <style>
+    :root{--bg:#0b0f14;--card:#101826;--muted:#8aa0b6;--fg:#e9f1fb;--ok:#32d583;--bad:#ff5c5c;--line:#1f2a3a;}
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    body{margin:0;background:var(--bg);color:var(--fg)}
+    header{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center;justify-content:space-between}
+    header h1{margin:0;font-size:16px;font-weight:700;letter-spacing:.2px}
+    header .right{display:flex;gap:10px;align-items:center}
+    .pill{font-size:12px;padding:6px 10px;border-radius:999px;background:#0f1622;border:1px solid var(--line);color:var(--muted)}
+    .pill.ok{color:var(--ok);border-color:#1f3a2a}
+    .pill.bad{color:var(--bad);border-color:#3a1f1f}
+    main{padding:16px 18px;max-width:1200px;margin:0 auto}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .card{grid-column:span 12;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+    .card h2{margin:0 0 10px 0;font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.7px}
+    .kpis{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+    .kpi{grid-column:span 6;border:1px solid var(--line);border-radius:12px;padding:12px;background:#0f1622}
+    .kpi .label{font-size:12px;color:var(--muted)}
+    .kpi .value{font-size:20px;font-weight:800;margin-top:4px}
+    .kpi small{display:block;color:var(--muted);margin-top:2px;font-size:11px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
+    th{color:var(--muted);font-weight:700}
+    .muted{color:var(--muted)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .col6{grid-column:span 6}
+    .col4{grid-column:span 4}
+    .col8{grid-column:span 8}
+    .btn{cursor:pointer;border:1px solid var(--line);background:#0f1622;color:var(--fg);padding:8px 10px;border-radius:10px;font-size:12px}
+    .btn:hover{border-color:#2c3a52}
+    @media (max-width: 880px){
+      .col6,.col4,.col8{grid-column:span 12}
+      .kpi{grid-column:span 12}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Creta • Painel do Veículo</h1>
+    <div class="muted" style="font-size:12px;margin-top:3px">Telemetria (Torque → car-collector) • tempo real</div>
+  </div>
+  <div class="right">
+    <span id="pillHealth" class="pill">checando…</span>
+    <span id="pillTrip" class="pill">viagem: ?</span>
+    <button class="btn" onclick="refreshAll()">Atualizar agora</button>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+
+    <div class="card col6">
+      <h2>Status do serviço</h2>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">Serviço</div>
+          <div class="value mono" id="svcName">—</div>
+          <small id="svcHost" class="mono">—</small>
+        </div>
+        <div class="kpi">
+          <div class="label">Hora</div>
+          <div class="value mono" id="svcTime">—</div>
+          <small class="muted">Atualiza a cada 2s</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="card col6">
+      <h2>Viagem atual</h2>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">Trip ID</div>
+          <div class="value mono" id="tripId">—</div>
+          <small id="tripStarted" class="mono">—</small>
+        </div>
+        <div class="kpi">
+          <div class="label">Distância</div>
+          <div class="value" id="tripDistance">—</div>
+          <small class="muted">km (estimado por amostras)</small>
+        </div>
+
+        <div class="kpi">
+          <div class="label">Velocidade (última / máx)</div>
+          <div class="value" id="tripSpeed">—</div>
+          <small class="muted">km/h</small>
+        </div>
+        <div class="kpi">
+          <div class="label">RPM (min / máx)</div>
+          <div class="value" id="tripRpm">—</div>
+          <small class="muted">rpm</small>
+        </div>
+
+        <div class="kpi">
+          <div class="label">Arrefecimento (min / máx)</div>
+          <div class="value" id="tripCoolant">—</div>
+          <small class="muted">°C</small>
+        </div>
+        <div class="kpi">
+          <div class="label">Marcha lenta (tempo parado)</div>
+          <div class="value" id="tripIdle">—</div>
+          <small class="muted">segundos</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="card col4">
+      <h2>Campos recebidos</h2>
+      <div class="muted" style="font-size:12px;margin-bottom:8px">O que já chegou pelo endpoint</div>
+      <table>
+        <thead><tr><th>Campo</th><th>Contagem</th></tr></thead>
+        <tbody id="tblFields"><tr><td colspan="2" class="muted">carregando…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="card col8">
+      <h2>Resumo do dia</h2>
+      <div class="muted" style="font-size:12px;margin-bottom:8px">Trips detectadas hoje</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Trip ID</th>
+            <th>Amostras</th>
+            <th>Início (UTC)</th>
+            <th>Fim (UTC)</th>
+            <th>Distância (km)</th>
+            <th>Vel máx</th>
+            <th>RPM min/máx</th>
+            <th>Temp min/máx</th>
+          </tr>
+        </thead>
+        <tbody id="tblToday"><tr><td colspan="8" class="muted">carregando…</td></tr></tbody>
+      </table>
+      <div class="muted" style="font-size:12px;margin-top:10px">
+        Dica: mais pra frente a gente coloca “abastecimentos”, custo por km, e estatísticas Recife/Quixadá etc.
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  function fmt(n, suffix="") {
+    if (n === null || n === undefined || Number.isNaN(n)) return "—";
+    if (typeof n === "number") return (Math.round(n*10)/10).toString() + suffix;
+    return n.toString() + suffix;
+  }
+
+  async function jget(path) {
+    const r = await fetch(path, {cache:"no-store"});
+    if (!r.ok) throw new Error(`${path} -> HTTP ${r.status}`);
+    return await r.json();
+  }
+
+  async function refreshHealth() {
+    const data = await jget("/health");
+    $("svcName").textContent = data.service ?? "car-collector";
+    $("svcHost").textContent = (data.host ? `host: ${data.host}` : `vehicle: ${data.vehicle ?? "—"}`);
+    $("svcTime").textContent = (data.time ?? new Date().toISOString());
+
+    const pill = $("pillHealth");
+    pill.textContent = data.ok ? "online" : "erro";
+    pill.className = "pill " + (data.ok ? "ok" : "bad");
+
+    const pillTrip = $("pillTrip");
+    pillTrip.textContent = data.trip_active ? "viagem: ativa" : "viagem: parada";
+    pillTrip.className = "pill " + (data.trip_active ? "ok" : "");
+  }
+
+  async function refreshCurrentTrip() {
+    const t = await jget("/api/trips/current");
+
+    $("tripId").textContent = t.trip_id ?? "—";
+    $("tripStarted").textContent = t.started_at_utc ? `início: ${t.started_at_utc}` : "—";
+    $("tripDistance").textContent = fmt(t.distance_km, " km");
+    $("tripSpeed").textContent = `${fmt(t.last_speed_kmh)} / ${fmt(t.speed_max)} km/h`;
+    $("tripRpm").textContent = `${fmt(t.rpm_min)} / ${fmt(t.rpm_max)}`;
+    $("tripCoolant").textContent = `${fmt(t.coolant_min)} / ${fmt(t.coolant_max)}`;
+    $("tripIdle").textContent = fmt(t.idle_seconds, " s");
+
+    const pillTrip = $("pillTrip");
+    pillTrip.textContent = t.trip_active ? "viagem: ativa" : "viagem: parada";
+    pillTrip.className = "pill " + (t.trip_active ? "ok" : "");
+  }
+
+  async function refreshFields() {
+    const f = await jget("/api/fields");
+    const rows = (f.fields ?? []).map(x => (
+      `<tr><td class="mono">${x.name}</td><td>${x.count}</td></tr>`
+    ));
+    $("tblFields").innerHTML = rows.length ? rows.join("") : `<tr><td colspan="2" class="muted">sem dados ainda</td></tr>`;
+  }
+
+  function todayISO() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  async function refreshToday() {
+    const date = todayISO();
+    const s = await jget(`/api/trips/summary?date=${date}`);
+    const trips = s.trips ?? [];
+    const rows = trips.map(tr => `
+      <tr>
+        <td class="mono">${tr.trip_id}</td>
+        <td>${tr.samples}</td>
+        <td class="mono">${tr.started_at_utc ?? "—"}</td>
+        <td class="mono">${tr.ended_at_utc ?? "—"}</td>
+        <td>${fmt(tr.distance_km)}</td>
+        <td>${fmt(tr.speed_max)}</td>
+        <td>${fmt(tr.rpm_min)}/${fmt(tr.rpm_max)}</td>
+        <td>${fmt(tr.coolant_min)}/${fmt(tr.coolant_max)}</td>
+      </tr>
+    `);
+    $("tblToday").innerHTML = rows.length ? rows.join("") : `<tr><td colspan="8" class="muted">nenhuma trip hoje</td></tr>`;
+  }
+
+  async function refreshAll() {
+    try { await refreshHealth(); } catch(e){ console.error(e); }
+    try { await refreshCurrentTrip(); } catch(e){ console.error(e); }
+    try { await refreshFields(); } catch(e){ console.error(e); }
+    try { await refreshToday(); } catch(e){ console.error(e); }
+  }
+
+  refreshAll();
+  setInterval(() => refreshHealth().catch(()=>{}), 2000);
+  setInterval(() => refreshCurrentTrip().catch(()=>{}), 2000);
+  setInterval(() => refreshFields().catch(()=>{}), 15000);
+  setInterval(() => refreshToday().catch(()=>{}), 30000);
+</script>
+</body>
+</html>

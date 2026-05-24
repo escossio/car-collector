@@ -1,0 +1,13 @@
+{
+  "k5":   {"name": "Temperatura Motor", "unit": "°C", "alarm_high": 100},
+  "kff1001": {"name": "RPM", "unit": "rpm"},
+  "kff1007": {"name": "Velocidade", "unit": "km/h"},
+  "k42":  {"name": "Voltagem Bateria", "unit": "V", "alarm_low": 12.0},
+  "k4":   {"name": "Carga Motor", "unit": "%"},
+  "k10":  {"name": "Pressão Admissão", "unit": "psi"},
+  "k6":   {"name": "STFT (Ajuste Curto)", "unit": "%"},
+  "k7":   {"name": "LTFT (Ajuste Longo)", "unit": "%"},
+  "kff1201": {"name": "Consumo Médio", "unit": "km/l"},
+  "kff1005": {"name": "Longitude", "unit": "°"},
+  "kff1006": {"name": "Latitude", "unit": "°"}
+}
